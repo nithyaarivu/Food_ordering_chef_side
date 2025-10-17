@@ -49,7 +49,7 @@ EXCEL_FILE_NAME = "Food_items.xls"  # Change this to your file name
 
 # TELEGRAM BOT SETTINGS (for instant notifications)
 TELEGRAM_BOT_TOKEN = "8292262434:AAFvu-cODj6uKciqjox-hlCuGAvQrZu-QCk" # Get from @BotFather - Format: "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
-TELEGRAM_CHAT_ID = "6935996612"
+TELEGRAM_CHAT_ID = 
   # Get from bot getUpdates - Format: "987654321"
 
 # GOOGLE SHEETS SETTINGS (for real-time order tracking)
@@ -672,3 +672,4 @@ with col2:
 with col3:
 
     st.caption(f"📜 Orders: {len(st.session_state.order_history)}")
+
