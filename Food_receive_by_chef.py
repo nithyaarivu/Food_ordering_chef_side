@@ -164,24 +164,17 @@ def calculate_total():
 # Function to complete order
 def complete_order():
     if st.session_state.cart:
+        from datetime import datetime, timedelta
+        
+        # Get UAE time (UTC+4)
+        uae_time = datetime.utcnow() + timedelta(hours=4)
+        
         order = {
-            'date': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'date': uae_time.strftime("%Y-%m-%d %H:%M:%S"),  # ← UAE time
             'user_name': st.session_state.user_name,
             'items': dict(st.session_state.cart),
             'total': calculate_total()
         }
-        st.session_state.order_history.append(order)
-        
-        # Save order to CSV file for the manager
-        save_order_to_file(order)
-        
-        # DEBUG: Show that we're trying to send notification
-        st.write("DEBUG: Attempting to send notification...")
-        
-        st.session_state.cart = {}
-        st.session_state.show_success = True
-        return True
-    return False
 
 
 # Function to save order to CSV file
@@ -725,6 +718,7 @@ elif page == "📜 Order History":
                 col1, col2 = st.columns([2, 1])
                 with col2:
                     st.markdown(f"### 💰 Order Total: {order['total']:.2f} AED")
+
 
 
 
