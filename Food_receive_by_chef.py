@@ -395,7 +395,7 @@ if st.session_state.show_success:
 # Navigation
 page = st.radio(
     "Navigation",
-    ["🏠 Browse Items", "🛒 Cart", "📜 Order History", "👨‍💼 Manager View"],
+    ["🏠 Browse Items", "🛒 Cart", "📜 Order History"],  # ← 3 tabs now
     horizontal=True,
     label_visibility="collapsed"
 )
@@ -648,6 +648,84 @@ with col2:
 with col3:
 
     st.caption(f"📜 Orders: {len(st.session_state.order_history)}")
+    # Page 3: Order History
+elif page == "📜 Order History":
+    st.subheader("📜 Order History")
+    
+    if not st.session_state.order_history:
+        st.info("📜 No orders yet. Place your first order!")
+    else:
+        st.success(f"**You have placed {len(st.session_state.order_history)} orders**")
+        
+        for idx, order in enumerate(reversed(st.session_state.order_history)):
+            order_num = len(st.session_state.order_history) - idx
+            
+            with st.expander(f"📦 Order #{order_num} • {order['date']} • {order['total']:.2f} AED", expanded=(idx == 0)):
+                
+                # Create HTML table with left-aligned quantity
+                html_table = """
+                <style>
+                    .order-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 15px 0;
+                    }
+                    .order-table th {
+                        background-color: #f0f2f6;
+                        padding: 12px;
+                        text-align: left;
+                        border-bottom: 2px solid #ddd;
+                        font-weight: bold;
+                    }
+                    .order-table td {
+                        padding: 10px 12px;
+                        border-bottom: 1px solid #eee;
+                        text-align: left;
+                    }
+                    .order-table .price-col {
+                        text-align: right;
+                        font-weight: 600;
+                    }
+                    .order-table tbody tr:hover {
+                        background-color: #f8f9fa;
+                    }
+                </style>
+                <table class="order-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Category</th>
+                            <th>Unit Price</th>
+                            <th>Quantity</th>
+                            <th class="price-col">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                """
+                
+                for item in order['items'].values():
+                    html_table += f"""
+                        <tr>
+                            <td><strong>{item['name']}</strong></td>
+                            <td>{item['category']}</td>
+                            <td>{item['price']:.2f} AED</td>
+                            <td>{item['quantity']} {item['unit']}</td>
+                            <td class="price-col">{item['price'] * item['quantity']:.2f} AED</td>
+                        </tr>
+                    """
+                
+                html_table += """
+                    </tbody>
+                </table>
+                """
+                
+                st.markdown(html_table, unsafe_allow_html=True)
+                
+                # Order total
+                col1, col2 = st.columns([2, 1])
+                with col2:
+                    st.markdown(f"### 💰 Order Total: {order['total']:.2f} AED")
+
 
 
 
