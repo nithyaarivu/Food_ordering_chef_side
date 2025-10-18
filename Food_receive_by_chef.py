@@ -48,15 +48,10 @@ st.markdown("""
 EXCEL_FILE_NAME = "Food_items.xls"  # Change this to your file name
 
 # TELEGRAM BOT SETTINGS (for instant notifications)
-TELEGRAM_BOT_TOKEN = "8292262434:AAFvu-cODj6uKciqjox-hlCuGAvQrZu-QCk" # Get from @BotFather - Format: "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
-TELEGRAM_CHAT_ID = 
-  # Get from bot getUpdates - Format: "987654321"
-
-# GOOGLE SHEETS SETTINGS (for real-time order tracking)
-GOOGLE_SCRIPT_URL = ""  # Get from Apps Script deployment - Format: "https://script.google.com/macros/s/.../exec"
-
-# Manager password
-MANAGER_PASSWORD = "manager123"  # Change this!
+TELEGRAM_BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
+GOOGLE_SCRIPT_URL = st.secrets.get("GOOGLE_SCRIPT_URL", "")
+MANAGER_PASSWORD = st.secrets.get("MANAGER_PASSWORD", "manager123")
 
 # ===========================================
 
@@ -672,4 +667,5 @@ with col2:
 with col3:
 
     st.caption(f"📜 Orders: {len(st.session_state.order_history)}")
+
 
