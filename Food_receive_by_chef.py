@@ -505,32 +505,74 @@ elif page == "🛒 Cart":
 # Page 3: Order History
 elif page == "📜 Order History":
     st.subheader("Order History")
-
+    
     if not st.session_state.order_history:
         st.info("📜 No orders yet. Place your first order!")
     else:
         st.success(f"**Total Orders: {len(st.session_state.order_history)}**")
-
+        
         for idx, order in enumerate(reversed(st.session_state.order_history)):
             order_num = len(st.session_state.order_history) - idx
-
+            
             with st.expander(f"📦 Order #{order_num} • {order['date']} • {order['total']:.2f} AED", expanded=(idx == 0)):
-                # Display items in a table format
-                items_data = []
+                
+                # Create HTML table with custom alignment
+                html_table = """
+                <style>
+                    .order-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                    }
+                    .order-table th {
+                        background-color: #f0f2f6;
+                        padding: 10px;
+                        text-align: left;
+                        border-bottom: 2px solid #ddd;
+                        font-weight: bold;
+                    }
+                    .order-table td {
+                        padding: 8px;
+                        border-bottom: 1px solid #eee;
+                        text-align: left;
+                    }
+                    .order-table .price-col {
+                        text-align: right;
+                    }
+                    .order-table .qty-col {
+                        text-align: left;  /* Quantity aligned left */
+                    }
+                </style>
+                <table class="order-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Category</th>
+                            <th>Unit Price</th>
+                            <th class="qty-col">Quantity</th>
+                            <th class="price-col">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                """
+                
                 for item in order['items'].values():
-                    items_data.append({
-                        'Item': item['name'],
-                        'Category': item['category'],
-                        'Unit Price': f"{item['price']:.2f} AED",
-                        'Quantity': item['quantity'],
-                        'Total': f"{item['price'] * item['quantity']:.2f} AED"
-                    })
-
-                df_order = pd.DataFrame(items_data)
-                st.dataframe(df_order, use_container_width=True, hide_index=True)
-
+                    html_table += f"""
+                        <tr>
+                            <td>{item['name']}</td>
+                            <td>{item['category']}</td>
+                            <td>{item['price']:.2f} AED</td>
+                            <td class="qty-col">{item['quantity']}</td>
+                            <td class="price-col">{item['price'] * item['quantity']:.2f} AED</td>
+                        </tr>
+                    """
+                
+                html_table += """
+                    </tbody>
+                </table>
+                """
+                
+                st.markdown(html_table, unsafe_allow_html=True)
                 st.markdown(f"### 💰 Order Total: {order['total']:.2f} AED")
-
 # Page 4: Manager View
 elif page == "👨‍💼 Manager View":
     st.subheader("👨‍💼 Manager Dashboard")
@@ -718,6 +760,7 @@ elif page == "📜 Order History":
                 col1, col2 = st.columns([2, 1])
                 with col2:
                     st.markdown(f"### 💰 Order Total: {order['total']:.2f} AED")
+
 
 
 
