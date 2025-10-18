@@ -268,26 +268,35 @@ def send_to_google_sheets(order):
 def send_telegram_notification(order):
     """Send instant notification to Telegram"""
     try:
+        TELEGRAM_BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
+        TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
+        
         if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
             return
-
+        
         import requests
-
+        from datetime import datetime, timedelta
+        
+        # Convert to UAE time (UTC+4)
+        utc_time = datetime.strptime(order['date'], "%Y-%m-%d %H:%M:%S")
+        uae_time = utc_time + timedelta(hours=4)
+        uae_time_str = uae_time.strftime("%Y-%m-%d %I:%M:%S %p")  # 12-hour format
+        
         # Format message
         message = f"🍽️ *NEW ORDER RECEIVED!*\n\n"
         message += f"👤 *From:* {order['user_name']}\n"
-        message += f"🕐 *Time:* {order['date']}\n\n"
+        message += f"🕐 *Time:* {uae_time_str} (UAE)\n\n"
         message += f"📋 *Items:*\n"
-
+        
         for item in order['items'].values():
             message += f"• {item['name']}\n"
             message += f"  {item['quantity']} {item['unit']} × {item['price']:.2f} AED = {item['price'] * item['quantity']:.2f} AED\n"
-
+        
         message += f"\n💰 *Total: {order['total']:.2f} AED*"
-
+        
         # Send to Telegram
         telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-
+        
         response = requests.post(
             telegram_url,
             json={
@@ -297,14 +306,15 @@ def send_telegram_notification(order):
             },
             timeout=10
         )
-
+        
         if response.status_code == 200:
             print(f"✅ Telegram notification sent!")
         else:
             print(f"⚠️ Telegram error: {response.status_code}")
-
+            
     except Exception as e:
         print(f"⚠️ Could not send Telegram: {e}")
+```
 
 
 # Load inventory on first run
@@ -638,6 +648,7 @@ with col2:
 with col3:
 
     st.caption(f"📜 Orders: {len(st.session_state.order_history)}")
+
 
 
 
