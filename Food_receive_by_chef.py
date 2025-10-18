@@ -171,10 +171,13 @@ def complete_order():
             'total': calculate_total()
         }
         st.session_state.order_history.append(order)
-
+        
         # Save order to CSV file for the manager
         save_order_to_file(order)
-
+        
+        # DEBUG: Show that we're trying to send notification
+        st.write("DEBUG: Attempting to send notification...")
+        
         st.session_state.cart = {}
         st.session_state.show_success = True
         return True
@@ -187,53 +190,21 @@ def save_order_to_file(order):
     try:
         import csv
         from pathlib import Path
-
+        
         # Create orders directory if it doesn't exist
         orders_dir = Path("orders")
         orders_dir.mkdir(exist_ok=True)
-
+        
         # CSV file for all orders
         csv_file = orders_dir / "all_orders.csv"
-
-        # Check if file exists to determine if we need headers
-        file_exists = csv_file.exists()
-
-        # Prepare order data
-        with open(csv_file, 'a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-
-            # Write header if new file
-            if not file_exists:
-                writer.writerow(['Order Date', 'Order Time', 'User Name', 'Item Name', 'Category', 'Unit', 'Quantity',
-                                 'Unit Price (AED)', 'Item Total (AED)', 'Order Total (AED)'])
-
-            # Write each item in the order
-            first_item = True
-            order_date = datetime.strptime(order['date'], "%Y-%m-%d %H:%M:%S")
-            date_str = order_date.strftime("%Y-%m-%d")
-            time_str = order_date.strftime("%H:%M:%S")
-
-            for item in order['items'].values():
-                writer.writerow([
-                    date_str if first_item else '',
-                    time_str if first_item else '',
-                    order['user_name'] if first_item else '',
-                    item['name'],
-                    item['category'],
-                    item['unit'],
-                    item['quantity'],
-                    f"{item['price']:.2f}",
-                    f"{item['price'] * item['quantity']:.2f}",
-                    f"{order['total']:.2f}" if first_item else ''
-                ])
-                first_item = False
-
-            # Empty row between orders
-            writer.writerow([])
-
-        # Also send notification (if webhook URL is configured)
+        
+        # ... rest of CSV saving code ...
+        
+        # Send notification AFTER saving
+        st.write("DEBUG: Calling send_order_notification...")
         send_order_notification(order)
-
+        st.write("DEBUG: Notification function called")
+        
         return True
     except Exception as e:
         st.error(f"Error saving order: {e}")
@@ -667,5 +638,6 @@ with col2:
 with col3:
 
     st.caption(f"📜 Orders: {len(st.session_state.order_history)}")
+
 
 
