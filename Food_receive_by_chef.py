@@ -323,8 +323,9 @@ def send_telegram_notification(user_name, cart, total, order_date, order_time):
         import requests
 
         # Your Telegram Bot Token and Chat ID
-        TELEGRAM_BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
-        TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
+        # Get Telegram credentials from secrets
+        BOT_TOKEN = st.secrets.get("BOT_TOKEN", "")
+        CHAT_ID = st.secrets.get("CHAT_ID", "")
         # Build the message
         message = f"🔔 *NEW ORDER RECEIVED*\n\n"
         message += f"📅 Date: {order_date}\n"
@@ -722,6 +723,7 @@ with col2:
     st.caption(f"🛒 In Cart: {cart_items}")
 with col3:
     st.caption(f"📜 Orders: {len(st.session_state.order_history)}")
+
 
 
 
