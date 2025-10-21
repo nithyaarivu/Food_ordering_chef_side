@@ -48,8 +48,8 @@ st.markdown("""
 EXCEL_FILE_NAME = "Food_items.xls"  # Change this to your file name
 
 # TELEGRAM BOT SETTINGS (for instant notifications)
-TELEGRAM_BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
+#TELEGRAM_BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
+#TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
 GOOGLE_SCRIPT_URL = st.secrets.get("GOOGLE_SCRIPT_URL", "")
 MANAGER_PASSWORD = st.secrets.get("MANAGER_PASSWORD", "manager123")
 # ===========================================
@@ -725,6 +725,7 @@ with col2:
     st.caption(f"🛒 In Cart: {cart_items}")
 with col3:
     st.caption(f"📜 Orders: {len(st.session_state.order_history)}")
+
 
 
 
