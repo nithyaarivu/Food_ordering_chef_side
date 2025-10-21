@@ -52,7 +52,6 @@ TELEGRAM_BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
 GOOGLE_SCRIPT_URL = st.secrets.get("GOOGLE_SCRIPT_URL", "")
 MANAGER_PASSWORD = st.secrets.get("MANAGER_PASSWORD", "manager123")
-
 # ===========================================
 
 # Initialize session state
@@ -162,20 +161,80 @@ def calculate_total():
 
 
 # Function to complete order
+# Function to complete order
+# Function to complete order
 def complete_order():
-    if st.session_state.cart:
+    """Complete the order and save to CSV"""
+    try:
         from datetime import datetime, timedelta
-        
+        from pathlib import Path
+        import csv
+
+        if not st.session_state.cart:
+            return False
+
+        # Create orders directory if it doesn't exist
+        orders_dir = Path("orders")
+        orders_dir.mkdir(exist_ok=True)
+
+        orders_file = orders_dir / "all_orders.csv"
+
         # Get UAE time (UTC+4)
         uae_time = datetime.utcnow() + timedelta(hours=4)
-        
-        order = {
-            'date': uae_time.strftime("%Y-%m-%d %H:%M:%S"),  # ← UAE time
-            'user_name': st.session_state.user_name,
-            'items': dict(st.session_state.cart),
-            'total': calculate_total()
-        }
+        order_date = uae_time.strftime("%Y-%m-%d")
+        order_time = uae_time.strftime("%H:%M:%S")
 
+        # Prepare order data
+        total = calculate_total()
+        user_name = st.session_state.get('user_name', 'Guest User')
+
+        # Check if file exists to determine if we need headers
+        file_exists = orders_file.exists()
+
+        # Write to CSV
+        with open(orders_file, 'a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+
+            # Write header if file is new - IN THE CORRECT ORDER
+            if not file_exists:
+                writer.writerow(['Order Date', 'Order Time', 'User Name', 'Item Name',
+                                 'Category', 'Unit', 'Quantity', 'Unit Price (AED)',
+                                 'Item Total (AED)', 'Order Total (AED)'])
+
+            # Write each item in the cart - IN THE CORRECT ORDER
+            for item in st.session_state.cart.values():
+                writer.writerow([
+                    order_date,  # Order Date
+                    order_time,  # Order Time
+                    user_name,  # User Name
+                    item['name'],  # Item Name
+                    item['category'],  # Category
+                    item['unit'],  # Unit
+                    item['quantity'],  # Quantity
+                    f"{item['price']:.2f}",  # Unit Price (AED)
+                    f"{item['price'] * item['quantity']:.2f}",  # Item Total (AED)
+                    f"{total:.2f}"  # Order Total (AED)
+                ])
+
+        # Send Telegram notification
+        send_telegram_notification(user_name, st.session_state.cart, total, order_date, order_time)
+
+        # Save to order history
+        st.session_state.order_history.append({
+            'date': f"{order_date} {order_time}",
+            'user_name': user_name,
+            'items': dict(st.session_state.cart),
+            'total': total
+        })
+
+        # Clear the cart
+        st.session_state.cart.clear()
+
+        return True
+
+    except Exception as e:
+        st.error(f"Error completing order: {str(e)}")
+        return False
 
 # Function to save order to CSV file
 def save_order_to_file(order):
@@ -183,21 +242,21 @@ def save_order_to_file(order):
     try:
         import csv
         from pathlib import Path
-        
+
         # Create orders directory if it doesn't exist
         orders_dir = Path("orders")
         orders_dir.mkdir(exist_ok=True)
-        
+
         # CSV file for all orders
         csv_file = orders_dir / "all_orders.csv"
-        
+
         # ... rest of CSV saving code ...
-        
+
         # Send notification AFTER saving
         st.write("DEBUG: Calling send_order_notification...")
         send_order_notification(order)
         st.write("DEBUG: Notification function called")
-        
+
         return True
     except Exception as e:
         st.error(f"Error saving order: {e}")
@@ -258,57 +317,49 @@ def send_to_google_sheets(order):
         print(f"⚠️ Could not send to Google Sheets: {e}")
 
 
-def send_telegram_notification(order):
-    """Send instant notification to Telegram"""
+def send_telegram_notification(user_name, cart, total, order_date, order_time):
+    """Send order notification via Telegram"""
     try:
-        TELEGRAM_BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
-        TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
-        
-        if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-            return
-        
         import requests
-        from datetime import datetime, timedelta
-        
-        # Convert to UAE time (UTC+4)
-        utc_time = datetime.strptime(order['date'], "%Y-%m-%d %H:%M:%S")
-        uae_time = utc_time + timedelta(hours=4)
-        uae_time_str = uae_time.strftime("%Y-%m-%d %I:%M:%S %p")  # 12-hour format
-        
-        # Format message
-        message = f"🍽️ *NEW ORDER RECEIVED!*\n\n"
-        message += f"👤 *From:* {order['user_name']}\n"
-        message += f"🕐 *Time:* {uae_time_str} (UAE)\n\n"
-        message += f"📋 *Items:*\n"
-        
-        for item in order['items'].values():
-            message += f"• {item['name']}\n"
-            message += f"  {item['quantity']} {item['unit']} × {item['price']:.2f} AED = {item['price'] * item['quantity']:.2f} AED\n"
-        
-        message += f"\n💰 *Total: {order['total']:.2f} AED*"
-        
-        # Send to Telegram
-        telegram_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        
-        response = requests.post(
-            telegram_url,
-            json={
-                'chat_id': TELEGRAM_CHAT_ID,
-                'text': message,
-                'parse_mode': 'Markdown'
-            },
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            print(f"✅ Telegram notification sent!")
-        else:
-            print(f"⚠️ Telegram error: {response.status_code}")
-            
-    except Exception as e:
-        print(f"⚠️ Could not send Telegram: {e}")
-```
 
+        # Your Telegram Bot Token and Chat ID
+       TELEGRAM_BOT_TOKEN = st.secrets.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = st.secrets.get("TELEGRAM_CHAT_ID", "")
+        # Build the message
+        message = f"🔔 *NEW ORDER RECEIVED*\n\n"
+        message += f"📅 Date: {order_date}\n"
+        message += f"⏰ Time: {order_time}\n"
+        message += f"👤 User: {user_name}\n"
+        message += f"{'=' * 30}\n\n"
+
+        message += "*📦 Order Items:*\n"
+        for item in cart.values():
+            item_total = item['price'] * item['quantity']
+            message += f"• {item['name']}\n"
+            message += f"  └ {item['quantity']} x {item['price']:.2f} AED = {item_total:.2f} AED\n"
+
+        message += f"\n{'=' * 30}\n"
+        message += f"💰 *TOTAL: {total:.2f} AED*"
+
+        # Send via Telegram
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        payload = {
+            'chat_id': CHAT_ID,
+            'text': message,
+            'parse_mode': 'Markdown'
+        }
+
+        response = requests.post(url, json=payload)
+
+        if response.status_code == 200:
+            return True
+        else:
+            st.warning(f"Telegram notification failed: {response.text}")
+            return False
+
+    except Exception as e:
+        st.warning(f"Could not send Telegram notification: {str(e)}")
+        return False
 
 # Load inventory on first run
 if st.session_state.inventory is None:
@@ -388,13 +439,13 @@ if st.session_state.show_success:
 # Navigation
 page = st.radio(
     "Navigation",
-    ["🏠 Browse Items", "🛒 Cart", "📜 Order History"],  # ← 3 tabs now
+    ["🏠 Browse Items", "🛒 Cart", "📜 Order History", "👨‍💼 Manager View"],  # ✅ Correct
     horizontal=True,
     label_visibility="collapsed"
 )
 
 # Page 1: Browse Items
-if page == "🏠 Browse Items":
+if page == "🏠 Browse Items":  # ✅ Has colon
     st.subheader("Browse Items")
 
     # Search and filter
@@ -442,8 +493,7 @@ if page == "🏠 Browse Items":
     if st.session_state.cart:
         cart_count = sum(item['quantity'] for item in st.session_state.cart.values())
         st.info(f"🛒 Cart: {cart_count} items • Total: {calculate_total():.2f} AED")
-
-# Page 2: Cart
+# cart
 elif page == "🛒 Cart":
     st.subheader("Your Order")
 
@@ -495,84 +545,48 @@ elif page == "🛒 Cart":
 
         st.divider()
 
-        # Complete order button
+        # Complete order button (INSIDE else block!)
         if st.button("✅ Complete Order", type="primary", use_container_width=True):
-            if complete_order():
-                st.success("✅ Order sent successfully!")
-                st.info(f"📧 Order has been saved and will be processed by the kitchen manager.")
+            result = complete_order()
+            if result:
+                st.balloons()
+                st.success("✅ Order placed successfully!")
+                st.info("📧 Order has been saved and sent to kitchen manager.")
+                import time
+                time.sleep(2)
                 st.rerun()
+            else:
+                st.error("❌ Something went wrong. Please try again.")
 
 # Page 3: Order History
 elif page == "📜 Order History":
     st.subheader("Order History")
-    
+
     if not st.session_state.order_history:
         st.info("📜 No orders yet. Place your first order!")
     else:
         st.success(f"**Total Orders: {len(st.session_state.order_history)}**")
-        
+
         for idx, order in enumerate(reversed(st.session_state.order_history)):
             order_num = len(st.session_state.order_history) - idx
-            
+
             with st.expander(f"📦 Order #{order_num} • {order['date']} • {order['total']:.2f} AED", expanded=(idx == 0)):
-                
-                # Create HTML table with custom alignment
-                html_table = """
-                <style>
-                    .order-table {
-                        width: 100%;
-                        border-collapse: collapse;
-                    }
-                    .order-table th {
-                        background-color: #f0f2f6;
-                        padding: 10px;
-                        text-align: left;
-                        border-bottom: 2px solid #ddd;
-                        font-weight: bold;
-                    }
-                    .order-table td {
-                        padding: 8px;
-                        border-bottom: 1px solid #eee;
-                        text-align: left;
-                    }
-                    .order-table .price-col {
-                        text-align: right;
-                    }
-                    .order-table .qty-col {
-                        text-align: left;  /* Quantity aligned left */
-                    }
-                </style>
-                <table class="order-table">
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th>Category</th>
-                            <th>Unit Price</th>
-                            <th class="qty-col">Quantity</th>
-                            <th class="price-col">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                """
-                
+                # Display items in a table format
+                items_data = []
                 for item in order['items'].values():
-                    html_table += f"""
-                        <tr>
-                            <td>{item['name']}</td>
-                            <td>{item['category']}</td>
-                            <td>{item['price']:.2f} AED</td>
-                            <td class="qty-col">{item['quantity']}</td>
-                            <td class="price-col">{item['price'] * item['quantity']:.2f} AED</td>
-                        </tr>
-                    """
-                
-                html_table += """
-                    </tbody>
-                </table>
-                """
-                
-                st.markdown(html_table, unsafe_allow_html=True)
+                    items_data.append({
+                        'Item': item['name'],
+                        'Category': item['category'],
+                        'Unit Price': f"{item['price']:.2f} AED",
+                        'Quantity': item['quantity'],
+                        'Total': f"{item['price'] * item['quantity']:.2f} AED"
+                    })
+
+                df_order = pd.DataFrame(items_data)
+                st.dataframe(df_order, use_container_width=True, hide_index=True)
+
                 st.markdown(f"### 💰 Order Total: {order['total']:.2f} AED")
+
 # Page 4: Manager View
 elif page == "👨‍💼 Manager View":
     st.subheader("👨‍💼 Manager Dashboard")
@@ -620,6 +634,9 @@ elif page == "👨‍💼 Manager View":
             # Remove empty rows
             df_orders = df_orders[df_orders['Item Name'].notna()]
 
+            # Convert Quantity to string for left alignment
+            df_orders['Quantity'] = df_orders['Quantity'].astype(int).astype(str)
+
             # Display summary statistics
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -641,7 +658,30 @@ elif page == "👨‍💼 Manager View":
 
             # Show all orders
             st.subheader("📋 Detailed Orders")
-            st.dataframe(df_orders, use_container_width=True, hide_index=True)
+            st.dataframe(
+                df_orders,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Quantity": st.column_config.NumberColumn(
+                        "Quantity",
+                        format="%d",  # Integer format
+                    ),
+                    "Unit Price (AED)": st.column_config.NumberColumn(
+                        "Unit Price (AED)",
+                        format="%.2f",
+                    ),
+                    "Item Total (AED)": st.column_config.NumberColumn(
+                        "Item Total (AED)",
+                        format="%.2f",
+                    ),
+                    "Order Total (AED)": st.column_config.NumberColumn(
+                        "Order Total (AED)",
+                        format="%.2f",
+                    )
+                }
+            )
+
 
             # Download button
             st.download_button(
@@ -681,88 +721,7 @@ with col2:
     cart_items = sum(item['quantity'] for item in st.session_state.cart.values())
     st.caption(f"🛒 In Cart: {cart_items}")
 with col3:
-
     st.caption(f"📜 Orders: {len(st.session_state.order_history)}")
-    # Page 3: Order History
-elif page == "📜 Order History":
-    st.subheader("📜 Order History")
-    
-    if not st.session_state.order_history:
-        st.info("📜 No orders yet. Place your first order!")
-    else:
-        st.success(f"**You have placed {len(st.session_state.order_history)} orders**")
-        
-        for idx, order in enumerate(reversed(st.session_state.order_history)):
-            order_num = len(st.session_state.order_history) - idx
-            
-            with st.expander(f"📦 Order #{order_num} • {order['date']} • {order['total']:.2f} AED", expanded=(idx == 0)):
-                
-                # Create HTML table with left-aligned quantity
-                html_table = """
-                <style>
-                    .order-table {
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin: 15px 0;
-                    }
-                    .order-table th {
-                        background-color: #f0f2f6;
-                        padding: 12px;
-                        text-align: left;
-                        border-bottom: 2px solid #ddd;
-                        font-weight: bold;
-                    }
-                    .order-table td {
-                        padding: 10px 12px;
-                        border-bottom: 1px solid #eee;
-                        text-align: left;
-                    }
-                    .order-table .price-col {
-                        text-align: right;
-                        font-weight: 600;
-                    }
-                    .order-table tbody tr:hover {
-                        background-color: #f8f9fa;
-                    }
-                </style>
-                <table class="order-table">
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th>Category</th>
-                            <th>Unit Price</th>
-                            <th>Quantity</th>
-                            <th class="price-col">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                """
-                
-                for item in order['items'].values():
-                    html_table += f"""
-                        <tr>
-                            <td><strong>{item['name']}</strong></td>
-                            <td>{item['category']}</td>
-                            <td>{item['price']:.2f} AED</td>
-                            <td>{item['quantity']} {item['unit']}</td>
-                            <td class="price-col">{item['price'] * item['quantity']:.2f} AED</td>
-                        </tr>
-                    """
-                
-                html_table += """
-                    </tbody>
-                </table>
-                """
-                
-                st.markdown(html_table, unsafe_allow_html=True)
-                
-                # Order total
-                col1, col2 = st.columns([2, 1])
-                with col2:
-                    st.markdown(f"### 💰 Order Total: {order['total']:.2f} AED")
-
-
-
 
 
 
