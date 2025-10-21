@@ -321,47 +321,49 @@ def send_telegram_notification(user_name, cart, total, order_date, order_time):
     """Send order notification via Telegram"""
     try:
         import requests
-
-        # Your Telegram Bot Token and Chat ID
-        # Get Telegram credentials from secrets
+        
+        # Get from Streamlit secrets - this will work on Streamlit Share
         BOT_TOKEN = st.secrets.get("BOT_TOKEN", "")
         CHAT_ID = st.secrets.get("CHAT_ID", "")
+        
+        if not BOT_TOKEN or not CHAT_ID:
+            st.warning("⚠️ Telegram notifications not configured. Order saved successfully.")
+            return False
+        
         # Build the message
-        message = f"🔔 *NEW ORDER RECEIVED*\n\n"
+        message = f"🔔 NEW ORDER RECEIVED\n\n"
         message += f"📅 Date: {order_date}\n"
         message += f"⏰ Time: {order_time}\n"
         message += f"👤 User: {user_name}\n"
-        message += f"{'=' * 30}\n\n"
-
-        message += "*📦 Order Items:*\n"
+        message += f"{'='*30}\n\n"
+        
+        message += "📦 Order Items:\n"
         for item in cart.values():
             item_total = item['price'] * item['quantity']
             message += f"• {item['name']}\n"
             message += f"  └ {item['quantity']} x {item['price']:.2f} AED = {item_total:.2f} AED\n"
-
-        message += f"\n{'=' * 30}\n"
-        message += f"💰 *TOTAL: {total:.2f} AED*"
-
+        
+        message += f"\n{'='*30}\n"
+        message += f"💰 TOTAL: {total:.2f} AED"
+        
         # Send via Telegram
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
         payload = {
             'chat_id': CHAT_ID,
-            'text': message,
-            'parse_mode': 'Markdown'
+            'text': message
         }
-
-        response = requests.post(url, json=payload)
-
+        
+        response = requests.post(url, json=payload, timeout=10)
+        
         if response.status_code == 200:
             return True
         else:
-            st.warning(f"Telegram notification failed: {response.text}")
+            st.warning(f"Telegram error: {response.status_code}")
             return False
-
+            
     except Exception as e:
         st.warning(f"Could not send Telegram notification: {str(e)}")
         return False
-
 # Load inventory on first run
 if st.session_state.inventory is None:
     # Look for the file in the same directory as this script
@@ -723,6 +725,7 @@ with col2:
     st.caption(f"🛒 In Cart: {cart_items}")
 with col3:
     st.caption(f"📜 Orders: {len(st.session_state.order_history)}")
+
 
 
 
