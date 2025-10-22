@@ -589,7 +589,6 @@ elif page == "📜 Order History":
                 st.dataframe(df_order, use_container_width=True, hide_index=True)
 
                 st.markdown(f"### 💰 Order Total: {order['total']:.2f} AED")
-
 # Page 4: Manager View
 elif page == "👨‍💼 Manager View":
     st.subheader("👨‍💼 Manager Dashboard")
@@ -622,7 +621,7 @@ elif page == "👨‍💼 Manager View":
 
     st.divider()
 
-    # Try to load orders from CSV
+    # Define orders file path
     from pathlib import Path
 
     orders_file = Path("orders/all_orders.csv")
@@ -637,83 +636,58 @@ elif page == "👨‍💼 Manager View":
             # Remove empty rows
             df_orders = df_orders[df_orders['Item Name'].notna()]
 
-            # Convert Quantity to string for left alignment
-            df_orders['Quantity'] = df_orders['Quantity'].astype(int).astype(str)
+            # Check if dataframe has data
+            if df_orders.empty:
+                st.info("📭 No orders in the file yet.")
+            else:
+                # Display summary statistics
+                col1, col2, col3 = st.columns(3)
 
-            # Display summary statistics
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                unique_users = df_orders['User Name'].dropna().unique()
-                st.metric("Total Users", len(unique_users))
-            with col2:
-                total_orders = len(df_orders[df_orders['Order Date'].notna()])
-                st.metric("Total Orders", total_orders)
-            with col3:
-                # Calculate total amount - handle the column name carefully
-                if 'Order Total (AED)' in df_orders.columns:
-                    total_amount = df_orders['Order Total (AED)'].dropna().astype(float).sum()
-                else:
-                    # If column name is different, try to calculate from Item Total
-                    total_amount = df_orders['Item Total (AED)'].astype(float).sum()
-                st.metric("Total Amount", f"{total_amount:.2f} AED")
+                with col1:
+                    unique_users = df_orders['User Name'].dropna().unique()
+                    st.metric("Total Users", len(unique_users))
 
-            st.divider()
+                with col2:
+                    # Count unique orders
+                    unique_orders = df_orders.groupby(['Order Date', 'Order Time', 'User Name']).size()
+                    total_orders = len(unique_orders)
+                    st.metric("Total Orders", total_orders)
 
-            # Show all orders
-            st.subheader("📋 Detailed Orders")
-            st.dataframe(
-                df_orders,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Quantity": st.column_config.NumberColumn(
-                        "Quantity",
-                        format="%d",  # Integer format
-                    ),
-                    "Unit Price (AED)": st.column_config.NumberColumn(
-                        "Unit Price (AED)",
-                        format="%.2f",
-                    ),
-                    "Item Total (AED)": st.column_config.NumberColumn(
-                        "Item Total (AED)",
-                        format="%.2f",
-                    ),
-                    "Order Total (AED)": st.column_config.NumberColumn(
-                        "Order Total (AED)",
-                        format="%.2f",
-                    )
-                }
-            )
+                with col3:
+                    # Calculate total using Item Total column
+                    df_orders_clean = df_orders.copy()
+                    df_orders_clean['Item Total (AED)'] = df_orders_clean['Item Total (AED)'].astype(str).str.replace(
+                        ' AED', '').str.strip()
+                    total_amount = pd.to_numeric(df_orders_clean['Item Total (AED)'], errors='coerce').sum()
+                    st.metric("Total Amount", f"{total_amount:.2f} AED")
+
+                st.divider()
+
+                # Show all orders
+                st.subheader("📋 Detailed Orders")
+                st.dataframe(df_orders, use_container_width=True, hide_index=True)
+
+                # Download button
+                st.download_button(
+                    label="📥 Download Orders CSV",
+                    data=df_orders.to_csv(index=False).encode('utf-8'),
+                    file_name=f"kitchen_orders_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
 
 
-            # Download button
-            st.download_button(
-                label="📥 Download Orders CSV",
-                data=df_orders.to_csv(index=False).encode('utf-8'),
-                file_name=f"kitchen_orders_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
-
-            # Group by user
-            st.divider()
-            st.subheader("👥 Orders by User")
-
-            user_summary = df_orders.groupby('User Name').agg({
-                'Quantity': 'sum',
-                'Item Total (AED)': lambda x: pd.to_numeric(x, errors='coerce').sum()
-            }).reset_index()
-            user_summary.columns = ['User Name', 'Total Items', 'Total Spent (AED)']
-            user_summary['Total Spent (AED)'] = user_summary['Total Spent (AED)'].apply(lambda x: f"{x:.2f}")
-
-            st.dataframe(user_summary, use_container_width=True, hide_index=True)
 
         except Exception as e:
             st.error(f"Error reading orders: {e}")
             st.info("The orders file might be empty or have a different format.")
+            import traceback
+
+            st.code(traceback.format_exc())
 
     else:
         st.info("📭 No orders yet. Orders will appear here once users start ordering.")
         st.write("Orders are saved to: `orders/all_orders.csv`")
+
 
 # Footer
 st.markdown("---")
@@ -725,6 +699,7 @@ with col2:
     st.caption(f"🛒 In Cart: {cart_items}")
 with col3:
     st.caption(f"📜 Orders: {len(st.session_state.order_history)}")
+
 
 
 
